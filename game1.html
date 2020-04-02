@@ -1,0 +1,347 @@
+<!doctype html>
+<html>
+<head>
+<title>Space N Vaders Game</title>
+</head>
+<body>
+<h1>Space N Vaders</h1>
+
+<canvas style="z-index:1" id="canvas" width="600" height="400"> </canvas>
+<div style="z-index:2;text-align: center">
+    <input id="menuButton" type="button" style="z-index:1;position:absolute;left: 262.5px;top: 270px;" value="Начать игру" onclick="onClick()" /></div>
+<script src="gamecore.js"></script>
+
+<script>
+
+var can = document.getElementById("canvas");
+var c = can.getContext('2d');
+var but = document.getElementById("menuButton");
+player.width = 46;
+player.height = 46;
+
+var ship_image;
+var bomb_image;
+var bullet_image;
+var ship_images = [];
+var inGame = false;
+var shipSelected = 0;
+var scorePoints = 0;
+var healthPoints = 0;
+var endDate;
+var isPause = false;
+loadResources();
+
+function loadResources() {
+    ship_image = new Image();
+    ship_image.src = "images/hunter1.png";
+    
+    bomb_image = new Image();
+    bomb_image.src = "images/bomb.png";
+    
+    bullet_image = new Image();
+    bullet_image.src = "images/bullets.png";
+
+    for (var i = 3; i > 0; i--) {
+        var ship = new Image;
+        ship.src = "images/hunter" + i + ".png";
+        ship_images.push(ship);
+    }
+    
+}
+
+function mainLoop() {
+	var c = can.getContext('2d');
+
+	updateGame();
+	updateBackground();
+	updateEnemies();
+	updatePlayer();
+	
+	updatePlayerBullets();
+	updateEnemyBullets();
+
+	checkCollisions();
+	
+	drawBackground(c);
+	drawEnemies(c);
+	drawPlayer(c);
+	drawEnemyBullets(c);
+	drawPlayerBullets(c);
+	drawOverlay(c);
+ 	drawText(300,50,scorePoints,"white");
+ 	var currentDate = new Date();
+ 	console.log(currentDate);
+ 	
+
+ 	var txt = endDate - currentDate;
+ 	var t = new Date(txt);
+
+ 	drawText(100,50,t.getMinutes()+":" + t.getSeconds() + ":" + t.getMilliseconds(),"white");
+	drawText(450,50,healthPoints,"white");
+ 	
+}
+function menuLoop()
+{
+	var c = can.getContext('2d');
+	drawBackground(c);
+	drawButtonsInMenu(c);
+}
+function gameLoop()
+{
+	if(isPause)return;
+    if(inGame)
+    mainLoop();
+    else
+    menuLoop();
+}
+
+// =========== player ============
+
+function firePlayerBullet() {
+	//create a new bullet
+	playerBullets.push({
+		x: player.x+14,
+		y: player.y - 5,
+		width:20,
+		height:20,
+		counter:0,
+	});
+}
+
+function drawPlayer(c) {
+    if(player.state == "dead")  return;
+    
+    if(player.state == "hit") {
+    	scorePoints = 0;
+        drawPlayerExplosion(c);
+    	    return;
+	}
+    let ship = ship_images[shipSelected];
+	c.drawImage(ship, 
+	    0,0, 23,23, //src coords
+	    player.x, player.y, player.width, player.height //dst coords
+	    );
+}
+
+var particles = [];
+function drawPlayerExplosion(c) {
+    //start
+    if(player.counter == 0) {
+        particles = []; //clear any old values
+        for(var i = 0; i<50; i++) {
+            particles.push({
+                    x: player.x + player.width/2,
+                    y: player.y + player.height/2,
+                    xv: (Math.random()-0.5)*2.0*5.0,  // x velocity
+                    yv: (Math.random()-0.5)*2.0*5.0,  // y velocity
+                    age: 0,
+            });
+        }
+    }
+    
+    //update and draw
+    if(player.counter > 0) {
+        for(var i=0; i<particles.length; i++) {
+            var p = particles[i];
+            p.x += p.xv;
+            p.y += p.yv;
+            var v = 255-p.age*3;
+            c.fillStyle = "rgb("+v+","+v+","+v+")";
+            c.fillRect(p.x,p.y,3,3);
+            p.age++;
+        }
+    }
+};
+
+function drawPlayerBullets(c) {
+	c.fillStyle = "blue";
+	for(i in playerBullets) {
+		var bullet = playerBullets[i];
+		var count = Math.floor(bullet.counter/4);
+		var xoff = (count%4)*24;
+		
+		//c.fillRect(bullet.x, bullet.y, bullet.width,bullet.height);
+		c.drawImage(
+		    bullet_image,
+		    xoff+10,0+9,8,8,//src
+		    bullet.x,bullet.y,bullet.width,bullet.height//dst
+		    );
+	}
+}
+
+// =========== buttons in menu =======
+function drawButtonsInMenu(c)
+	{
+		c.fillStyle = "white";
+
+        c.fillRect(250, 185, 100, 30);
+        c.fillStyle = "black";
+        c.textAlign = "center";
+        c.textBaseline = "middle";
+        c.fillText("Начать игру",300,200);
+        c.fillStyle = "white";
+        c.font = 'bold 30px sans-serif';
+        c.fillText("Game Name",300,50);
+        c.font = 'bold 14px sans-serif';
+        c.fillText("Корабль управляется стрелками <- влево - право ->",300,100);
+        c.fillText("так же стрелками меняется внешний вид корабля",300,125);
+        c.fillText("при нажатии на пробел происходит выстрел, чтобы начать играть, нажмите enter ",300,150);
+        c.fillStyle = "black";
+        let ship = ship_images[shipSelected];
+        c.drawImage(ship, 
+            0,0, 23,23, //src coords
+            300-player.width/2, player.y, player.width, player.height //dst coords
+            );
+        
+        
+
+	} 
+function drawText(x, y, text, color)
+{
+        c.fillStyle = color;
+        c.font = 'bold 30px sans-serif';
+        c.fillText(text,x, y);
+}
+// =========== background ============
+
+function drawBackground(c) {
+
+	c.fillStyle = "black";
+	c.fillRect(0,0,can.width,can.height);
+}
+
+
+
+// =========== enemies ===============
+
+function drawEnemies(c) {
+    for(var i in enemies) {
+        var enemy = enemies[i];
+        if(enemy.state == "alive") {
+            c.fillStyle = "green";
+            drawEnemy(c,enemy,15);
+        }
+        if(enemy.state == "hit") {
+            c.fillStyle = "purple";
+            enemy.shrink--;
+            drawEnemy(c,enemy,enemy.shrink);
+        }
+        //this probably won't ever be called.
+        if(enemy.state == "dead") {
+            c.fillStyle = "black";
+            c.drawEnemy(c,enemy,15);
+        }
+    }
+}
+
+function drawEnemy(c,enemy,radius) {
+    if(radius <=0) radius = 1;
+    var theta = enemy.counter;        
+    c.save();
+    c.translate(0,30);
+    //draw the background circle
+    circlePath(c, enemy.x, enemy.y, radius*2);
+    c.fill();
+    //draw the wavy dots
+    for(var i=0; i<10; i++) {
+        var xoff = Math.sin(toRadians(theta+i*36*2))*radius;
+        var yoff = Math.sin(toRadians(theta+i*36*1.5))*radius;
+        circlePath(c, enemy.x + xoff, enemy.y + yoff, 3);
+        c.fillStyle = "white";
+        c.fill();
+    }
+    c.restore();
+}
+function toRadians(d) {
+    return d * Math.PI * 2.0 / 360.0;
+}
+function circlePath(c, x, y, r) {
+    c.beginPath();
+    c.moveTo(x,y);
+    c.arc(x,y, r, 0, Math.PI*2);    
+}
+
+
+function createEnemyBullet(enemy) {
+    return {
+        x:enemy.x,
+        y:enemy.y+enemy.height,
+        width:30,
+        height:30,
+        counter:0,
+    }
+}
+
+function drawEnemyBullets(c) {
+    for(var i in enemyBullets) {
+        var bullet = enemyBullets[i];
+        var xoff = (bullet.counter%9)*12 + 1;
+        var yoff = 1;
+        c.drawImage(bomb_image,
+            xoff,yoff,11,11,//src
+            bullet.x,bullet.y,bullet.width,bullet.height//dest
+            );
+    }
+}
+
+
+
+
+
+// =========== overlay ===============
+
+function drawOverlay(c) {
+    if(overlay.counter == -1) return;
+    
+    //fade in
+    var alpha = overlay.counter/50.0;
+    c.textAlign = "left";
+    c.textBaseline = "middle";
+    if(alpha > 1) alpha = 1;
+    c.globalAlpha = alpha;
+    
+    c.save();
+    c.fillStyle = "white";
+    c.font = "Bold 40pt Arial";
+    c.fillText(overlay.title,140,200);
+    c.font = "14pt Arial";
+    c.fillText(overlay.subtitle, 190,250);
+    c.restore();
+}
+function onClick()
+{
+inGame = true;
+healthPoints = 1;
+but.style.display='none';
+endDate = new Date();
+endDate.setMinutes(endDate.getMinutes() + 5);
+}
+function menuEvents(e)
+{
+    var code = e.keyCode;
+    if(code == 80) isPause = !isPause;
+    if(isPause) return;
+    if(inGame) return;
+
+    switch(code)
+    {
+        case 37:
+        if(shipSelected>0)shipSelected--;
+        break;
+        case 39:
+        if(shipSelected<2)shipSelected++;
+        break;
+    }
+}
+addEventListener("keyup", menuEvents);
+loadResources();
+doSetup();
+setInterval(gameLoop,1000/30);
+
+
+
+
+
+</script>
+</body>
+</html>
